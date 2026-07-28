@@ -1,0 +1,31 @@
+name: Daily Review Check
+
+on:
+  schedule:
+    # 한국시간(KST) 오전 8시 = UTC 전날 23:00
+    - cron: "0 23 * * *"
+  workflow_dispatch:  # 필요할 때 수동 실행 버튼도 제공
+
+jobs:
+  check-reviews:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 패키지 설치
+        run: |
+          pip install gspread google-auth requests beautifulsoup4 anthropic
+
+      - name: 리뷰 체크 실행
+        env:
+          GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python daily_check.py
