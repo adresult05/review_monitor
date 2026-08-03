@@ -9,7 +9,7 @@ from sheets_schema import ensure_schema, TEAMS, REVIEW_SHEET, open_spreadsheet
 
 st.set_page_config(page_title="리뷰 모니터링 - Main", page_icon="📊", layout="wide")
 st.title("고객사 리뷰 모니터링")
-st.caption("카카오맵 원문 수집 + 네이버 리뷰수/별점 변화 추적 (구글은 수기 확인)")
+st.caption("카카오맵 리뷰 내용 수집 + 네이버 리뷰수/별점 변화 추적")
 
 
 @st.cache_data(ttl=30)
