@@ -13,7 +13,6 @@ from collectors.kakao_summary import fetch_kakao_summary
 from collectors.naver_summary import fetch_naver_summary
 from style import inject_css, page_header
 
-st.set_page_config(page_title="모니터링 현황", page_icon="📡", layout="wide")
 inject_css()
 page_header("모니터링 현황")
 
