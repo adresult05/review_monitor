@@ -7,7 +7,6 @@ import streamlit as st
 from sheets_schema import ensure_schema, add_client, update_client, delete_client, TEAMS
 from style import inject_css, page_header
 
-st.set_page_config(page_title="고객사", page_icon="🩺", layout="wide")
 inject_css()
 page_header("고객사")
 
