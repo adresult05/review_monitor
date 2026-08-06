@@ -12,7 +12,6 @@ import streamlit as st
 from sheets_schema import ensure_schema, TEAMS, open_spreadsheet, REVIEW_SHEET
 from style import inject_css, page_header
 
-st.set_page_config(page_title="리뷰 감지", page_icon="⚠️", layout="wide")
 inject_css()
 page_header("리뷰 감지")
 
