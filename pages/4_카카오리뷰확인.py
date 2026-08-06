@@ -7,7 +7,6 @@ from sheets_schema import ensure_schema, TEAMS
 from collectors.kakao_reviews import fetch_kakao_reviews
 from style import inject_css, page_header
 
-st.set_page_config(page_title="카카오리뷰확인", page_icon="💬", layout="wide")
 inject_css()
 page_header("카카오리뷰확인", "등록된 고객사의 카카오맵 최근 리뷰 원문을 그대로 보여줍니다 (최신순).")
 
