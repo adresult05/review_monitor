@@ -99,14 +99,14 @@ def inject_css():
 
 def page_header(title: str, subtitle: str = ""):
     """펄스 라인 + 제목 + (선택)부제목을 그리는 공통 헤더."""
-    st.markdown(f"""
-    <div style="display:flex; align-items:center; gap:14px; margin-bottom:4px;">
-        {PULSE_SVG}
-        <div>
-            <div style="font-family:'IBM Plex Sans', sans-serif; font-weight:700; font-size:1.6rem; color:#1A2B4C;">{title}</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    pulse_inline = PULSE_SVG.replace("\n", "").strip()
+    html = (
+        f'<div style="display:flex; align-items:center; gap:14px; margin-bottom:4px;">'
+        f'{pulse_inline}'
+        f'<div style="font-family:\'IBM Plex Sans\', sans-serif; font-weight:700; font-size:1.6rem; color:#1A2B4C;">{title}</div>'
+        f'</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
     if subtitle:
         st.caption(subtitle)
     st.write("")
