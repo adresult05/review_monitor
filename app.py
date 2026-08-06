@@ -7,11 +7,11 @@
 """
 import streamlit as st
 
-st.set_page_config(page_title="리뷰 모니터링", page_icon="📊", layout="wide")
+st.set_page_config(page_title="리뷰 모니터링", page_icon="🕵️", layout="wide")
 
-main_page = st.Page("app_main.py", title="Main", icon="📊", default=True)
-client_page = st.Page("pages/1_고객사.py", title="고객사", icon="🩺")
-monitor_page = st.Page("pages/2_모니터링현황.py", title="모니터링현황", icon="📡")
+main_page = st.Page("app_main.py", title="Main", icon="🕵️", default=True)
+client_page = st.Page("pages/1_고객사.py", title="고객사", icon="🪪")
+monitor_page = st.Page("pages/2_모니터링현황.py", title="모니터링현황", icon="📲")
 alert_page = st.Page("pages/3_리뷰감지.py", title="리뷰감지", icon="⚠️")
 kakao_page = st.Page("pages/4_카카오리뷰확인.py", title="카카오리뷰확인", icon="💬")
 
