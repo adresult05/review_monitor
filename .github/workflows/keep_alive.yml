@@ -1,0 +1,62 @@
+name: Streamlit Keep Alive (Selenium)
+
+on:
+  schedule:
+    - cron: '0 */3 * * *'  # 3시간마다 실행
+  workflow_dispatch:
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install selenium webdriver-manager
+
+      - name: Run Python Bot
+        run: |
+          python -c "
+          from selenium import webdriver
+          from selenium.webdriver.chrome.options import Options
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+          from selenium.webdriver.support import expected_conditions as EC
+          import time
+
+          options = Options()
+          options.add_argument('--headless')
+          options.add_argument('--no-sandbox')
+          options.add_argument('--disable-dev-shm-usage')
+          options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+
+          driver = webdriver.Chrome(options=options)
+          driver.set_page_load_timeout(60)
+
+          try:
+              print('스트림릿 앱 접속 시작...')
+              driver.get('https://https://reviewmonitor1.streamlit.app/')
+              time.sleep(5)
+
+              # 앱이 잠들어 있으면 'Yes, get this app back up!' 버튼이 뜸
+              try:
+                  wake_button = WebDriverWait(driver, 10).until(
+                      EC.element_to_be_clickable((By.XPATH, \"//button[contains(., 'get this app back up')]\"))
+                  )
+                  wake_button.click()
+                  print('앱이 잠들어 있어서 깨우기 버튼을 클릭했습니다.')
+                  time.sleep(15)  # 앱이 재시작될 시간을 기다림
+              except Exception:
+                  print('이미 깨어 있는 상태였습니다 (버튼 없음).')
+
+              print('완료.')
+          finally:
+              driver.quit()
+          "
