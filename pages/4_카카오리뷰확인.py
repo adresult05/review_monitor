@@ -3,6 +3,7 @@
 팀 선택 + 고객사 검색으로 좁혀서, 등록된 고객사의 최근 카카오 리뷰를 그대로 본다.
 """
 import streamlit as st
+import pandas as pd
 from sheets_schema import ensure_schema, TEAMS
 from collectors.kakao_reviews import fetch_kakao_reviews
 from style import inject_css, page_header
@@ -56,6 +57,16 @@ else:
             st.info("가져온 리뷰가 없습니다.")
         else:
             st.write(f"최근 리뷰 {len(reviews)}건")
+
+            export_df = pd.DataFrame(reviews)
+            csv_bytes = export_df.to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                "⬇️ 엑셀(CSV)로 다운로드",
+                data=csv_bytes,
+                file_name=f"{selected_client_name}_카카오리뷰.csv",
+                mime="text/csv",
+            )
+
             for r in reviews:
                 rating = r.get("별점")
                 stars = "⭐" * int(rating) if isinstance(rating, (int, float)) else "(별점 없음)"
