@@ -37,6 +37,9 @@ jobs:
           options.add_argument('--headless=new')
           options.add_argument('--no-sandbox')
           options.add_argument('--disable-dev-shm-usage')
+          options.add_argument('--disable-gpu')
+          options.add_argument('--disable-features=NetworkServiceInProcess2,DnsOverHttps')
+          options.add_argument('--dns-prefetch-disable')
           options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
 
           service = Service(ChromeDriverManager().install())
@@ -45,7 +48,15 @@ jobs:
 
           try:
               print('스트림릿 앱 접속 시작...')
-              driver.get('https://reviewmonitor1.streamlit.app/')
+              for attempt in range(3):
+                  try:
+                      driver.get('https://reviewmonitor1.streamlit.app/')
+                      break
+                  except Exception as e:
+                      print(f'{attempt+1}번째 시도 실패: {e}')
+                      time.sleep(5)
+              else:
+                  raise Exception('3번 다 실패')
               time.sleep(5)
               try:
                   wake_button = WebDriverWait(driver, 10).until(
