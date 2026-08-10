@@ -3,6 +3,7 @@
 목록 탭에는 모니터링현황처럼 팀 선택 + 고객사 검색 필터가 있다.
 """
 import re
+import pandas as pd
 import streamlit as st
 from sheets_schema import ensure_schema, add_client, update_client, delete_client, TEAMS
 from style import inject_css, page_header
@@ -40,7 +41,7 @@ def _load_clients():
     return client_ws.get_all_records()
 
 
-tab_list, tab_add = st.tabs(["📋 고객사 목록", "➕ 고객사 추가"])
+tab_list, tab_add, tab_bulk = st.tabs(["📋 고객사 목록", "➕ 고객사 추가", "📥 일괄 등록"])
 
 with tab_list:
     clients = _load_clients()
@@ -140,3 +141,96 @@ with tab_add:
                     st.rerun()
                 else:
                     st.error(f"'{new_name}'은(는) 이미 등록되어 있습니다.")
+
+with tab_bulk:
+    st.write("**방법 1. 엑셀에서 표를 복사해서 아래 표에 붙여넣기**")
+    st.caption("엑셀에서 고객사명/담당부서/카카오ID(또는 링크)/네이버ID(또는 링크) 순서로 열을 만들어 복사한 뒤, "
+               "아래 표의 첫 칸을 클릭하고 Ctrl+V로 붙여넣으세요. 담당부서는 정확히 다음 중 하나여야 합니다: "
+               + ", ".join(TEAMS))
+
+    template_df = pd.DataFrame(
+        [{"고객사명": "", "담당부서": "", "카카오ID_또는_URL": "", "네이버ID_또는_URL": ""} for _ in range(5)]
+    )
+    edited_df = st.data_editor(
+        template_df, num_rows="dynamic", use_container_width=True, key="bulk_editor",
+    )
+
+    if st.button("📥 표에 입력한 내용으로 일괄 등록", type="primary"):
+        rows = edited_df.to_dict("records")
+        added, skipped, invalid_team = [], [], []
+        for row in rows:
+            name = str(row.get("고객사명", "")).strip()
+            team = str(row.get("담당부서", "")).strip()
+            if not name:
+                continue
+            if team not in TEAMS:
+                invalid_team.append(name)
+                continue
+            ok = add_client(
+                client_ws,
+                name=name,
+                kakao_id=_extract_id_from_url("kakao", str(row.get("카카오ID_또는_URL", ""))),
+                naver_id=_extract_id_from_url("naver", str(row.get("네이버ID_또는_URL", ""))),
+                active=True,
+                team=team,
+            )
+            (added if ok else skipped).append(name)
+
+        st.cache_data.clear()
+        if added:
+            st.success(f"등록 완료: {', '.join(added)}")
+        if skipped:
+            st.warning(f"이미 존재해서 건너뜀: {', '.join(skipped)}")
+        if invalid_team:
+            st.error(f"담당부서 값이 잘못돼서 건너뜀 (정확히 팀 이름과 일치해야 함): {', '.join(invalid_team)}")
+        if added:
+            st.rerun()
+
+    st.divider()
+    st.write("**방법 2. 엑셀/CSV 파일 업로드**")
+    st.caption("컬럼명이 정확히 '고객사명', '담당부서', '카카오ID_또는_URL', '네이버ID_또는_URL'이어야 합니다.")
+    uploaded_file = st.file_uploader("파일 선택", type=["xlsx", "csv"])
+
+    if uploaded_file is not None:
+        try:
+            if uploaded_file.name.endswith(".csv"):
+                upload_df = pd.read_csv(uploaded_file)
+            else:
+                upload_df = pd.read_excel(uploaded_file)
+        except Exception as e:
+            st.error(f"파일을 읽는 중 오류: {e}")
+            upload_df = None
+
+        if upload_df is not None:
+            st.write("미리보기:")
+            st.dataframe(upload_df, use_container_width=True)
+
+            if st.button("📥 이 파일 내용으로 일괄 등록", type="primary"):
+                added, skipped, invalid_team = [], [], []
+                for _, row in upload_df.iterrows():
+                    name = str(row.get("고객사명", "")).strip()
+                    team = str(row.get("담당부서", "")).strip()
+                    if not name or name == "nan":
+                        continue
+                    if team not in TEAMS:
+                        invalid_team.append(name)
+                        continue
+                    ok = add_client(
+                        client_ws,
+                        name=name,
+                        kakao_id=_extract_id_from_url("kakao", str(row.get("카카오ID_또는_URL", ""))),
+                        naver_id=_extract_id_from_url("naver", str(row.get("네이버ID_또는_URL", ""))),
+                        active=True,
+                        team=team,
+                    )
+                    (added if ok else skipped).append(name)
+
+                st.cache_data.clear()
+                if added:
+                    st.success(f"등록 완료: {', '.join(added)}")
+                if skipped:
+                    st.warning(f"이미 존재해서 건너뜀: {', '.join(skipped)}")
+                if invalid_team:
+                    st.error(f"담당부서 값이 잘못돼서 건너뜀: {', '.join(invalid_team)}")
+                if added:
+                    st.rerun()
