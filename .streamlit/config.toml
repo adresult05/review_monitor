@@ -4,3 +4,8 @@ backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F7F8FA"
 textColor = "#1F2430"
 font = "sans serif"
+
+[theme.sidebar]
+backgroundColor = "#1A2B4C"
+secondaryBackgroundColor = "#22345C"
+textColor = "#F1F3F6"
