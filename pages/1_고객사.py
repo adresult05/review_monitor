@@ -101,13 +101,13 @@ with tab_list:
                             team=new_team,
                         )
                         st.cache_data.clear()
-                        st.success(f"{name} 정보가 저장되었습니다.")
+                        st.toast(f"{name} 정보가 저장되었습니다.", icon="✅")
                         st.rerun()
 
                     if deleted:
                         delete_client(client_ws, name)
                         st.cache_data.clear()
-                        st.success(f"{name}가 삭제되었습니다.")
+                        st.toast(f"{name}가 삭제되었습니다.", icon="🗑️")
                         st.rerun()
 
 with tab_add:
@@ -137,7 +137,7 @@ with tab_add:
                 )
                 if ok:
                     st.cache_data.clear()
-                    st.success(f"'{new_name}' 고객사가 추가되었습니다.")
+                    st.toast("고객사 등록이 완료되었습니다!", icon="✅")
                     st.rerun()
                 else:
                     st.error(f"'{new_name}'은(는) 이미 등록되어 있습니다.")
@@ -178,11 +178,11 @@ with tab_bulk:
 
         st.cache_data.clear()
         if added:
-            st.success(f"등록 완료: {', '.join(added)}")
+            st.toast(f"{len(added)}건 등록 완료: {', '.join(added)}", icon="✅")
         if skipped:
-            st.warning(f"이미 존재해서 건너뜀: {', '.join(skipped)}")
+            st.toast(f"이미 존재해서 건너뜀: {', '.join(skipped)}", icon="⚠️")
         if invalid_team:
-            st.error(f"담당부서 값이 잘못돼서 건너뜀 (정확히 팀 이름과 일치해야 함): {', '.join(invalid_team)}")
+            st.toast(f"담당부서 값이 잘못돼서 건너뜀: {', '.join(invalid_team)}", icon="⚠️")
         if added:
             st.rerun()
 
@@ -227,10 +227,10 @@ with tab_bulk:
 
                 st.cache_data.clear()
                 if added:
-                    st.success(f"등록 완료: {', '.join(added)}")
+                    st.toast(f"{len(added)}건 등록 완료: {', '.join(added)}", icon="✅")
                 if skipped:
-                    st.warning(f"이미 존재해서 건너뜀: {', '.join(skipped)}")
+                    st.toast(f"이미 존재해서 건너뜀: {', '.join(skipped)}", icon="⚠️")
                 if invalid_team:
-                    st.error(f"담당부서 값이 잘못돼서 건너뜀: {', '.join(invalid_team)}")
+                    st.toast(f"담당부서 값이 잘못돼서 건너뜀: {', '.join(invalid_team)}", icon="⚠️")
                 if added:
                     st.rerun()
