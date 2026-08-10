@@ -9,6 +9,7 @@
   3. 전체 확인 (현재 화면에 보이는 모든 미확인 항목)
 """
 import streamlit as st
+import pandas as pd
 from sheets_schema import ensure_schema, TEAMS, open_spreadsheet, REVIEW_SHEET
 from style import inject_css, page_header
 
@@ -66,6 +67,17 @@ if selected_team != "전체":
     reviews = [r for r in reviews if r.get("담당부서") == selected_team]
 
 unconfirmed = [r for r in reviews if r.get("status") == "신규" and str(r.get("is_negative", "")).upper() == "TRUE"]
+
+# ── 리뷰 파일로 다운로드 (현재 팀 필터 기준, 확인/미확인 전부) ──
+if reviews:
+    export_df = pd.DataFrame(reviews)
+    csv_bytes = export_df.to_csv(index=False).encode("utf-8-sig")  # 엑셀에서 한글 안 깨지게
+    st.download_button(
+        "⬇️ 현재 목록 엑셀(CSV)로 다운로드",
+        data=csv_bytes,
+        file_name=f"리뷰내역_{selected_team}.csv",
+        mime="text/csv",
+    )
 
 # ── 전체 확인 버튼 (현재 화면에 보이는 전부) ──────────────
 col_title, col_all_confirm = st.columns([4, 1])
