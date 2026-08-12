@@ -1,15 +1,19 @@
 """
-고객사(병원) 등록/수정/삭제 화면. 담당 부서 배정도 여기서 처리.
-목록 탭에는 모니터링현황처럼 팀 선택 + 고객사 검색 필터가 있다.
+고객사(병원) 등록/수정/삭제 화면. 담당 부서 + 담당자 배정도 여기서 처리.
+목록 탭에는 모니터링현황처럼 팀 선택 + 고객사/담당자 검색 필터가 있다.
 """
 import re
 import pandas as pd
 import streamlit as st
-from sheets_schema import ensure_schema, add_client, update_client, delete_client, TEAMS
+from sheets_schema import ensure_schema, add_client, update_client, delete_client, TEAMS, normalize_for_search
 from style import inject_css, page_header
 
 inject_css()
 page_header("고객사")
+
+# 등록/수정/삭제 직후 rerun 되어도 사라지지 않는 확실한 완료 배너
+if "client_page_notice" in st.session_state:
+    st.success(st.session_state.pop("client_page_notice"))
 
 
 @st.cache_resource
@@ -53,13 +57,19 @@ with tab_list:
         with col_team:
             selected_team = st.selectbox("팀 선택", ["전체"] + TEAMS, key="client_page_team_filter")
         with col_search:
-            search_text = st.text_input("고객사 검색", placeholder="고객사명 입력", key="client_page_search")
+            search_text = st.text_input(
+                "고객사 / 담당자 검색", placeholder="고객사명 또는 담당자 이름 입력", key="client_page_search"
+            )
 
         filtered = clients
         if selected_team != "전체":
             filtered = [c for c in filtered if c.get("담당부서") == selected_team]
         if search_text.strip():
-            filtered = [c for c in filtered if search_text.strip() in c.get("고객사명", "")]
+            q = normalize_for_search(search_text)
+            filtered = [
+                c for c in filtered
+                if q in normalize_for_search(c.get("고객사명", "")) or q in normalize_for_search(c.get("담당자", ""))
+            ]
 
         if not filtered:
             st.info("조건에 맞는 고객사가 없습니다.")
@@ -67,7 +77,8 @@ with tab_list:
         for client in filtered:
             name = client.get("고객사명", "")
             team_label = client.get("담당부서", "") or "미배정"
-            with st.expander(f"{'🟢' if str(client.get('활성여부')).upper() == 'TRUE' else '⚪'} {name} · {team_label}"):
+            manager_label = client.get("담당자", "") or "미배정"
+            with st.expander(f"{'🟢' if str(client.get('활성여부')).upper() == 'TRUE' else '⚪'} {name} · {team_label} · {manager_label}"):
                 with st.form(f"edit_form_{name}"):
                     col1, col2 = st.columns(2)
                     with col1:
@@ -78,6 +89,9 @@ with tab_list:
                         current_team = client.get("담당부서", "")
                         team_index = TEAMS.index(current_team) if current_team in TEAMS else 0
                         new_team = st.selectbox("담당 부서", TEAMS, index=team_index, key=f"team_{name}")
+                        new_manager = st.text_input(
+                            "담당자", value=client.get("담당자", ""), placeholder="예: 프레드", key=f"manager_{name}"
+                        )
                     with col2:
                         new_kakao = st.text_input(
                             "카카오맵 URL 또는 ID", value=client.get("카카오_장소ID", ""), key=f"kakao_{name}"
@@ -99,21 +113,28 @@ with tab_list:
                             kakao_id=_extract_id_from_url("kakao", new_kakao),
                             naver_id=_extract_id_from_url("naver", new_naver),
                             team=new_team,
+                            manager=new_manager,
                         )
                         st.cache_data.clear()
-                        st.toast(f"{name} 정보가 저장되었습니다.", icon="✅")
+                        st.session_state["client_page_notice"] = f"'{name}' 정보가 저장되었습니다."
+                        st.toast("저장 완료", icon="✅")
                         st.rerun()
 
                     if deleted:
                         delete_client(client_ws, name)
                         st.cache_data.clear()
-                        st.toast(f"{name}가 삭제되었습니다.", icon="🗑️")
+                        st.session_state["client_page_notice"] = f"'{name}'가 삭제되었습니다."
+                        st.toast("삭제 완료", icon="🗑️")
                         st.rerun()
 
 with tab_add:
     with st.form("add_client_form"):
         new_name = st.text_input("고객사명 *", placeholder="예: OO정형외과")
-        new_team = st.selectbox("담당 부서 *", TEAMS)
+        col_team, col_manager = st.columns(2)
+        with col_team:
+            new_team = st.selectbox("담당 부서 *", TEAMS)
+        with col_manager:
+            new_manager = st.text_input("담당자", placeholder="예: 프레드")
 
         st.caption("아래 2개는 URL을 그대로 붙여넣으셔도 됩니다. 자동으로 ID만 추출합니다.")
         kakao_input = st.text_input("카카오맵 링크 또는 ID", placeholder="https://place.map.kakao.com/12345678")
@@ -134,22 +155,24 @@ with tab_add:
                     naver_id=_extract_id_from_url("naver", naver_input),
                     active=active_input,
                     team=new_team,
+                    manager=new_manager,
                 )
                 if ok:
                     st.cache_data.clear()
-                    st.toast("고객사 등록이 완료되었습니다!", icon="✅")
+                    st.session_state["client_page_notice"] = "등록이 완료되었습니다."
+                    st.toast("등록 완료", icon="✅")
                     st.rerun()
                 else:
                     st.error(f"'{new_name}'은(는) 이미 등록되어 있습니다.")
 
 with tab_bulk:
     st.write("**방법 1. 엑셀에서 표를 복사해서 아래 표에 붙여넣기**")
-    st.caption("엑셀에서 고객사명/담당부서/카카오ID(또는 링크)/네이버ID(또는 링크) 순서로 열을 만들어 복사한 뒤, "
+    st.caption("엑셀에서 고객사명/담당부서/담당자/카카오ID(또는 링크)/네이버ID(또는 링크) 순서로 열을 만들어 복사한 뒤, "
                "아래 표의 첫 칸을 클릭하고 Ctrl+V로 붙여넣으세요. 담당부서는 정확히 다음 중 하나여야 합니다: "
                + ", ".join(TEAMS))
 
     template_df = pd.DataFrame(
-        [{"고객사명": "", "담당부서": "", "카카오ID_또는_URL": "", "네이버ID_또는_URL": ""} for _ in range(5)]
+        [{"고객사명": "", "담당부서": "", "담당자": "", "카카오ID_또는_URL": "", "네이버ID_또는_URL": ""} for _ in range(5)]
     )
     edited_df = st.data_editor(
         template_df, num_rows="dynamic", use_container_width=True, key="bulk_editor",
@@ -161,6 +184,7 @@ with tab_bulk:
         for row in rows:
             name = str(row.get("고객사명", "")).strip()
             team = str(row.get("담당부서", "")).strip()
+            manager = str(row.get("담당자", "")).strip()
             if not name:
                 continue
             if team not in TEAMS:
@@ -173,22 +197,27 @@ with tab_bulk:
                 naver_id=_extract_id_from_url("naver", str(row.get("네이버ID_또는_URL", ""))),
                 active=True,
                 team=team,
+                manager=manager,
             )
             (added if ok else skipped).append(name)
 
         st.cache_data.clear()
+        msg_parts = []
         if added:
-            st.toast(f"{len(added)}건 등록 완료: {', '.join(added)}", icon="✅")
+            msg_parts.append(f"{len(added)}건 등록 완료: {', '.join(added)}")
         if skipped:
-            st.toast(f"이미 존재해서 건너뜀: {', '.join(skipped)}", icon="⚠️")
+            msg_parts.append(f"이미 존재해서 건너뜀: {', '.join(skipped)}")
         if invalid_team:
-            st.toast(f"담당부서 값이 잘못돼서 건너뜀: {', '.join(invalid_team)}", icon="⚠️")
+            msg_parts.append(f"담당부서 값이 잘못돼서 건너뜀: {', '.join(invalid_team)}")
+        if msg_parts:
+            st.session_state["client_page_notice"] = " / ".join(msg_parts)
         if added:
+            st.toast("등록 완료", icon="✅")
             st.rerun()
 
     st.divider()
     st.write("**방법 2. 엑셀/CSV 파일 업로드**")
-    st.caption("컬럼명이 정확히 '고객사명', '담당부서', '카카오ID_또는_URL', '네이버ID_또는_URL'이어야 합니다.")
+    st.caption("컬럼명이 정확히 '고객사명', '담당부서', '담당자', '카카오ID_또는_URL', '네이버ID_또는_URL'이어야 합니다.")
     uploaded_file = st.file_uploader("파일 선택", type=["xlsx", "csv"])
 
     if uploaded_file is not None:
@@ -210,6 +239,7 @@ with tab_bulk:
                 for _, row in upload_df.iterrows():
                     name = str(row.get("고객사명", "")).strip()
                     team = str(row.get("담당부서", "")).strip()
+                    manager = str(row.get("담당자", "")).strip()
                     if not name or name == "nan":
                         continue
                     if team not in TEAMS:
@@ -222,15 +252,20 @@ with tab_bulk:
                         naver_id=_extract_id_from_url("naver", str(row.get("네이버ID_또는_URL", ""))),
                         active=True,
                         team=team,
+                        manager=manager,
                     )
                     (added if ok else skipped).append(name)
 
                 st.cache_data.clear()
+                msg_parts = []
                 if added:
-                    st.toast(f"{len(added)}건 등록 완료: {', '.join(added)}", icon="✅")
+                    msg_parts.append(f"{len(added)}건 등록 완료: {', '.join(added)}")
                 if skipped:
-                    st.toast(f"이미 존재해서 건너뜀: {', '.join(skipped)}", icon="⚠️")
+                    msg_parts.append(f"이미 존재해서 건너뜀: {', '.join(skipped)}")
                 if invalid_team:
-                    st.toast(f"담당부서 값이 잘못돼서 건너뜀: {', '.join(invalid_team)}", icon="⚠️")
+                    msg_parts.append(f"담당부서 값이 잘못돼서 건너뜀: {', '.join(invalid_team)}")
+                if msg_parts:
+                    st.session_state["client_page_notice"] = " / ".join(msg_parts)
                 if added:
+                    st.toast("등록 완료", icon="✅")
                     st.rerun()
