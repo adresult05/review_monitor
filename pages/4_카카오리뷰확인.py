@@ -4,7 +4,7 @@
 """
 import streamlit as st
 import pandas as pd
-from sheets_schema import ensure_schema, TEAMS
+from sheets_schema import ensure_schema, TEAMS, normalize_for_search
 from collectors.kakao_reviews import fetch_kakao_reviews
 from style import inject_css, page_header
 
@@ -29,7 +29,7 @@ col_team, col_search = st.columns([1, 2])
 with col_team:
     selected_team = st.selectbox("팀 선택", ["전체"] + TEAMS)
 with col_search:
-    search_text = st.text_input("고객사 검색", placeholder="고객사명 입력")
+    search_text = st.text_input("고객사 / 담당자 검색", placeholder="고객사명 또는 담당자 이름 입력")
 
 clients = _load_clients()
 clients_with_kakao = [c for c in clients if str(c.get("카카오_장소ID", "")).strip()]
@@ -38,7 +38,11 @@ filtered = clients_with_kakao
 if selected_team != "전체":
     filtered = [c for c in filtered if c.get("담당부서") == selected_team]
 if search_text.strip():
-    filtered = [c for c in filtered if search_text.strip() in c.get("고객사명", "")]
+    q = normalize_for_search(search_text)
+    filtered = [
+        c for c in filtered
+        if q in normalize_for_search(c.get("고객사명", "")) or q in normalize_for_search(c.get("담당자", ""))
+    ]
 
 if not filtered:
     st.info("조건에 맞는, 카카오맵이 등록된 고객사가 없습니다.")
