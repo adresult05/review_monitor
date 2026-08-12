@@ -57,6 +57,7 @@ def _mark_checked_bulk(review_ids: list):
 clients = _load_clients()
 team_map = {c.get("고객사명", ""): c.get("담당부서", "") for c in clients}
 manager_map = {c.get("고객사명", ""): c.get("담당자", "") for c in clients}
+kakao_id_map = {c.get("고객사명", ""): str(c.get("카카오_장소ID", "")).strip() for c in clients}
 naver_id_map = {c.get("고객사명", ""): str(c.get("네이버_플레이스ID", "")).strip() for c in clients}
 
 col_team, col_search = st.columns([1, 2])
@@ -105,7 +106,7 @@ kakao_items = [r for r in unconfirmed if r.get("플랫폼") == "카카오"]
 naver_items = [r for r in unconfirmed if r.get("플랫폼") == "네이버"]
 
 
-def _render_platform_column(title: str, items: list, show_link: bool = False):
+def _render_platform_column(title: str, items: list, link_map: dict = None, link_label: str = ""):
     st.subheader(f"{title} {len(items)}건")
     if not items:
         st.caption("확인할 항목이 없습니다.")
@@ -120,10 +121,10 @@ def _render_platform_column(title: str, items: list, show_link: bool = False):
         header_col, btn_col = st.columns([3, 1])
         with header_col:
             st.markdown(f"**{client_name}** ({len(client_items)}건)")
-            if show_link:
-                naver_id = naver_id_map.get(client_name, "")
-                if naver_id:
-                    st.markdown(f"[📍 네이버플레이스 바로가기](https://map.naver.com/p/entry/place/{naver_id})")
+            if link_map:
+                url = link_map.get(client_name, "")
+                if url:
+                    st.markdown(f"[{link_label}]({url})")
         with btn_col:
             if st.button(f"이 고객사 확인", key=f"client_confirm_{title}_{client_name}"):
                 _mark_checked_bulk([it["리뷰ID"] for it in client_items])
@@ -140,8 +141,11 @@ def _render_platform_column(title: str, items: list, show_link: bool = False):
         st.divider()
 
 
+kakao_links = {name: f"https://place.map.kakao.com/{pid}" for name, pid in kakao_id_map.items() if pid}
+naver_links = {name: f"https://map.naver.com/p/entry/place/{pid}" for name, pid in naver_id_map.items() if pid}
+
 col_kakao, col_naver = st.columns(2)
 with col_kakao:
-    _render_platform_column("카카오맵 부정리뷰감지", kakao_items)
+    _render_platform_column("카카오맵 부정리뷰감지", kakao_items, link_map=kakao_links, link_label="📍 카카오맵 바로가기")
 with col_naver:
-    _render_platform_column("네이버 변동", naver_items, show_link=True)
+    _render_platform_column("네이버 변동", naver_items, link_map=naver_links, link_label="📍 네이버플레이스 바로가기")
