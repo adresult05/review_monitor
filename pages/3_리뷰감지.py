@@ -10,7 +10,7 @@
 """
 import streamlit as st
 import pandas as pd
-from sheets_schema import ensure_schema, TEAMS, open_spreadsheet, REVIEW_SHEET
+from sheets_schema import ensure_schema, TEAMS, open_spreadsheet, REVIEW_SHEET, normalize_for_search
 from style import inject_css, page_header
 
 inject_css()
@@ -56,16 +56,28 @@ def _mark_checked_bulk(review_ids: list):
 
 clients = _load_clients()
 team_map = {c.get("고객사명", ""): c.get("담당부서", "") for c in clients}
+manager_map = {c.get("고객사명", ""): c.get("담당자", "") for c in clients}
 naver_id_map = {c.get("고객사명", ""): str(c.get("네이버_플레이스ID", "")).strip() for c in clients}
 
-selected_team = st.selectbox("담당 부서", ["전체"] + TEAMS)
+col_team, col_search = st.columns([1, 2])
+with col_team:
+    selected_team = st.selectbox("담당 부서", ["전체"] + TEAMS)
+with col_search:
+    search_text = st.text_input("고객사 / 담당자 검색", placeholder="고객사명 또는 담당자 이름 입력")
 
 reviews = _load_reviews()
 for r in reviews:
     r["담당부서"] = team_map.get(r.get("고객사명", ""), "")
+    r["담당자"] = manager_map.get(r.get("고객사명", ""), "")
 
 if selected_team != "전체":
     reviews = [r for r in reviews if r.get("담당부서") == selected_team]
+if search_text.strip():
+    q = normalize_for_search(search_text)
+    reviews = [
+        r for r in reviews
+        if q in normalize_for_search(r.get("고객사명", "")) or q in normalize_for_search(r.get("담당자", ""))
+    ]
 
 unconfirmed = [r for r in reviews if r.get("status") == "신규" and str(r.get("is_negative", "")).upper() == "TRUE"]
 
