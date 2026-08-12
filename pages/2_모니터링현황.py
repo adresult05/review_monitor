@@ -71,14 +71,24 @@ else:
                 kakao_stat = _get_kakao_stat(kakao_id) if kakao_id else None
                 naver_stat = _get_naver_stat(naver_id) if naver_id else None
 
+                if kakao_stat and kakao_stat.get("후기미제공"):
+                    kakao_rating_display = "후기 미제공"
+                    kakao_count_display = "후기 미제공"
+                elif kakao_stat:
+                    kakao_rating_display = kakao_stat["평균별점"] if kakao_stat.get("평균별점") is not None else "-"
+                    kakao_count_display = kakao_stat["리뷰총개수"]
+                else:
+                    kakao_rating_display = "-"
+                    kakao_count_display = "-"
+
                 rows.append({
                     "모니터링": "🔵 ON" if is_active else "⚪ OFF",
                     "고객사명": c.get("고객사명", ""),
                     "담당부서": c.get("담당부서", ""),
                     "담당자": c.get("담당자", ""),
                     "카카오": "🟡 등록" if kakao_id else "⚫ 미등록",
-                    "카카오평점": kakao_stat["평균별점"] if kakao_stat and kakao_stat.get("평균별점") is not None else "-",
-                    "카카오후기수": kakao_stat["리뷰총개수"] if kakao_stat else "-",
+                    "카카오평점": kakao_rating_display,
+                    "카카오후기수": kakao_count_display,
                     "네이버": "🟢 등록" if naver_id else "⚫ 미등록",
                     "네이버평점": naver_stat["평균별점"] if naver_stat and naver_stat.get("평균별점") is not None else "-",
                     "네이버후기수": naver_stat["리뷰총개수"] if naver_stat else "-",
