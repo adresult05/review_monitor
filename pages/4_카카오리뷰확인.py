@@ -57,8 +57,10 @@ else:
         with st.spinner("리뷰 불러오는 중..."):
             reviews = _get_reviews(kakao_id)
 
-        if not reviews:
-            st.info("가져온 리뷰가 없습니다.")
+        if reviews is None:
+            st.error("리뷰를 가져오는 데 실패했습니다 (일시적 오류일 수 있어요, 잠시 후 다시 시도해주세요).")
+        elif not reviews:
+            st.info("이 병원은 카카오맵 후기를 제공하지 않거나, 아직 등록된 리뷰가 없습니다.")
         else:
             st.write(f"최근 리뷰 {len(reviews)}건")
 
