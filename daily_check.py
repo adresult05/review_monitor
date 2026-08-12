@@ -107,7 +107,7 @@ def run():
         kakao_id = str(client.get("카카오_장소ID", "")).strip()
         if kakao_id:
             try:
-                collected = fetch_kakao_reviews(kakao_id)
+                collected = fetch_kakao_reviews(kakao_id) or []  # None(요청 실패)도 안전하게 빈 리스트로
             except Exception as e:
                 print(f"[{name}] 카카오 리뷰 수집 실패: {e}")
                 collected = []
