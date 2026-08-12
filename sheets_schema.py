@@ -13,9 +13,15 @@ SCOPES = [
 ]
 
 CLIENT_SHEET = "고객사설정"
-CLIENT_HEADERS = ["고객사명", "활성여부", "구글_PlaceID", "카카오_장소ID", "네이버_플레이스ID", "담당부서"]
+CLIENT_HEADERS = ["고객사명", "활성여부", "구글_PlaceID", "카카오_장소ID", "네이버_플레이스ID", "담당부서", "담당자"]
 
 TEAMS = ["본사1팀", "본사2팀", "마포지사", "브마팀", "경영지원팀"]
+
+
+def normalize_for_search(text: str) -> str:
+    """검색/비교용 정규화. 앞뒤/중간 공백을 다 무시해서 '프레드'와 '프레드 '를
+    같은 사람으로 취급한다."""
+    return (text or "").replace(" ", "").strip()
 
 SUMMARY_HISTORY_SHEET = "리뷰통계이력"
 SUMMARY_HISTORY_HEADERS = ["날짜", "고객사명", "플랫폼", "리뷰총개수", "평균별점"]
@@ -145,13 +151,14 @@ def load_existing_review_ids(review_ws):
 
 # ── 고객사 CRUD (앱에서 직접 추가/수정/삭제할 때 사용) ──────────────────
 
-def add_client(client_ws, name, google_id="", kakao_id="", naver_id="", active=True, team=""):
+def add_client(client_ws, name, google_id="", kakao_id="", naver_id="", active=True, team="", manager=""):
     """고객사를 새로 추가. 이미 같은 이름이 있으면 False 반환."""
     existing_names = [n.strip() for n in client_ws.col_values(1)[1:]]
     if name.strip() in existing_names:
         return False
     client_ws.append_row(
-        [name.strip(), "TRUE" if active else "FALSE", google_id.strip(), kakao_id.strip(), naver_id.strip(), team.strip()],
+        [name.strip(), "TRUE" if active else "FALSE", google_id.strip(), kakao_id.strip(), naver_id.strip(),
+         team.strip(), manager.strip()],
         value_input_option="USER_ENTERED",
     )
     return True
@@ -165,7 +172,7 @@ def _find_client_row(client_ws, name: str):
     return None
 
 
-def update_client(client_ws, original_name, name=None, google_id=None, kakao_id=None, naver_id=None, active=None, team=None):
+def update_client(client_ws, original_name, name=None, google_id=None, kakao_id=None, naver_id=None, active=None, team=None, manager=None):
     """기존 고객사 정보를 수정. 값이 None인 필드는 변경하지 않음."""
     row_idx = _find_client_row(client_ws, original_name)
     if row_idx is None:
@@ -185,6 +192,8 @@ def update_client(client_ws, original_name, name=None, google_id=None, kakao_id=
         updates["네이버_플레이스ID"] = naver_id.strip()
     if team is not None:
         updates["담당부서"] = team.strip()
+    if manager is not None:
+        updates["담당자"] = manager.strip()
 
     for col_name, value in updates.items():
         col_idx = header.index(col_name) + 1
