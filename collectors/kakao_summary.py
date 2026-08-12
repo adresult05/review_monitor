@@ -30,7 +30,12 @@ HEADERS = {
 
 
 def fetch_kakao_summary(place_id: str) -> dict | None:
-    """반환값 예: {"리뷰총개수": 4, "평균별점": 2.0}. 실패 시 None."""
+    """
+    반환값:
+      - 정상 응답 + 리뷰 있음: {"리뷰총개수": 4, "평균별점": 2.0, "후기미제공": False}
+      - 정상 응답인데 리뷰가 0건(후기 미제공 병원 등): {"리뷰총개수": 0, "평균별점": None, "후기미제공": True}
+      - 요청 자체 실패: None
+    """
     url = PANEL_URL.format(place_id=place_id)
     try:
         resp = requests.get(url, headers=HEADERS, timeout=15)
@@ -48,4 +53,7 @@ def fetch_kakao_summary(place_id: str) -> dict | None:
         print(f"[kakao-summary] place_id={place_id} - 응답 구조 변경 가능성")
         return None
 
-    return {"리뷰총개수": review_count, "평균별점": average_score}
+    if not review_count:
+        return {"리뷰총개수": 0, "평균별점": None, "후기미제공": True}
+
+    return {"리뷰총개수": review_count, "평균별점": average_score, "후기미제공": False}
