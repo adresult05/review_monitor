@@ -33,8 +33,13 @@ HEADERS = {
 }
 
 
-def fetch_kakao_reviews(place_id: str, order: str = "LATEST") -> list[dict]:
+def fetch_kakao_reviews(place_id: str, order: str = "LATEST") -> list[dict] | None:
     """
+    반환값:
+      - 정상 응답 + 리뷰 있음 → 리뷰 리스트
+      - 정상 응답인데 리뷰가 0건 (병원이 후기 기능을 안 쓰는 경우 등) → 빈 리스트 []
+      - 요청 자체가 실패(네트워크 오류, 응답 파싱 실패 등) → None (진짜 실패, 빈 리스트와 구분)
+
     order:
       - "LATEST": 최신순 (기본값, 실제 브라우저 개발자도구로 확인된 값)
       - "RECOMMENDED": 카카오 추천순
@@ -48,11 +53,11 @@ def fetch_kakao_reviews(place_id: str, order: str = "LATEST") -> list[dict]:
         data = resp.json()
     except Exception as e:
         print(f"[kakao] place_id={place_id} 요청 실패: {e}")
-        return []
+        return None
 
     reviews = data.get("reviews", [])
     if not reviews:
-        return []
+        return []  # 정상 응답, 그냥 후기가 없는 상태 (예: 후기 미제공 병원)
 
     results = []
     for r in reviews:
