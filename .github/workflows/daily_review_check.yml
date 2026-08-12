@@ -22,10 +22,21 @@ jobs:
         run: |
           pip install gspread google-auth requests beautifulsoup4 anthropic
 
-      - name: 리뷰 체크 실행
+      - name: 리뷰 체크 실행 (실패 시 10분 뒤 재시도, 최대 3회)
         env:
           GCP_SERVICE_ACCOUNT_JSON: ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          python daily_check.py
+          max_attempts=3
+          attempt=1
+          until python daily_check.py; do
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "❌ ${max_attempts}번 시도했지만 계속 실패했습니다."
+              exit 1
+            fi
+            echo "⚠️ ${attempt}번째 시도 실패. 10분 후 재시도합니다..."
+            attempt=$((attempt+1))
+            sleep 600
+          done
+          echo "✅ 성공"
