@@ -29,28 +29,42 @@ def _get_client():
 def _ai_judge(content: str) -> bool:
     """Claude Haiku로 리뷰 내용의 부정 여부(뉘앙스 포함)를 판단. True/False 반환."""
     client = _get_client()
+    
+    # 균형 잡힌 가이드라인과 Few-shot(예시) 추가로 과잉 부정 판단 방지
     prompt = (
-        "다음은 병원 리뷰입니다. 이 리뷰가 병원 입장에서 '부정적인 리뷰'인지 판단해주세요.\n"
-        "특정 부정 단어가 없어도, 전체적인 어조나 뉘앙스가 미묘하게 부정적이거나 애매하면"
-        "(예: 재방문 의사가 불확실하거나, 기대에 못 미쳤다는 느낌 등) 부정으로 판단하세요.\n"
-        "단순 사실 서술이나 명확히 긍정적인 내용은 부정으로 보지 마세요.\n\n"
-        f"리뷰: {content}\n\n"
-        '오직 JSON 한 줄로만 답하세요: {"is_negative": true} 또는 {"is_negative": false}'
+        "당신은 병원 리뷰의 뉘앙스를 분석하는 전문가입니다.\n"
+        "이 리뷰가 병원 입장에서 실질적으로 '부정적인 리뷰'인지 판단해주세요.\n\n"
+        "[판단 기준]\n"
+        "1. 부정(True): 단순 불만을 넘어 서비스, 치료 결과, 친절도 등에 명확한 섭섭함/아쉬움/재방문 꺼림이 드러나는 경우\n"
+        "2. 긍정/보통(False): 칭찬이 주를 이루거나, 칭찬 끝에 덧붙인 사소한 건의사항, 객관적인 사실 서술(예: '주차장이 협소함')은 부정으로 보지 않음\n\n"
+        "[예시]\n"
+        "- '대기시간은 좀 길었지만 의사선생님이 정말 친절하세요' -> False (칭찬 위주)\n"
+        "- '시설은 깨끗한데 다음엔 다른 곳도 가볼까 고민 중이에요' -> True (재방문 의사 불투명)\n"
+        "- '주차장이 넓진 않은데 진료는 잘해주네요' -> False (솔직 후기/칭찬)\n\n"
+        f"리뷰: \"{content}\"\n\n"
+        '다른 말은 절대 하지 말고, 오직 JSON 포맷으로만 응답하세요: {"is_negative": true} 또는 {"is_negative": false}'
     )
-    resp = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=50,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    raw_text = "".join(
-        block.text for block in resp.content if getattr(block, "type", None) == "text"
-    )
+    
     try:
-        parsed = json.loads(raw_text.strip())
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=50,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        
+        raw_text = "".join(
+            block.text for block in resp.content if getattr(block, "type", None) == "text"
+        )
+        
+        # ```json ... ``` 형태로 들어오는 예외 대비
+        cleaned_text = raw_text.strip().replace("```json", "").replace("```", "").strip()
+        parsed = json.loads(cleaned_text)
         return bool(parsed.get("is_negative", False))
-    except Exception:
-        # 파싱 실패 시 안전하게 '확인 필요'로 간주 (부정으로 표시해 사람이 보게)
-        return True
+        
+    except Exception as e:
+        # 4~5점 리뷰이므로 AI 판단 실패 시 안전하게 '정상(False)' 처리
+        print(f"AI 판단 에러: {e}")
+        return False
 
 
 def judge_review(rating, content: str) -> tuple[bool, str]:
