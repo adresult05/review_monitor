@@ -8,8 +8,10 @@
   2. 고객사별로 한 번에 확인 (그 고객사의 미확인 항목 전부)
   3. 전체 확인 (현재 화면에 보이는 모든 미확인 항목)
 """
+import time
 import streamlit as st
 import pandas as pd
+import gspread
 from sheets_schema import ensure_schema, TEAMS, open_spreadsheet, REVIEW_SHEET, normalize_for_search
 from style import inject_css, page_header
 
@@ -17,26 +19,44 @@ inject_css()
 page_header("리뷰 감지")
 
 
+@st.cache_resource
+def _get_spreadsheet():
+    """구글시트 접속을 세션 안에서 재사용 (버튼 누를 때마다 매번 새로 인증하지 않도록)."""
+    return open_spreadsheet()
+
+
+def _with_retry(func, *args, retries=3, delay=2, **kwargs):
+    """구글시트 API가 일시적으로 바쁠 때(429/503 등) 잠깐 기다렸다가 재시도."""
+    last_error = None
+    for attempt in range(retries):
+        try:
+            return func(*args, **kwargs)
+        except gspread.exceptions.APIError as e:
+            last_error = e
+            time.sleep(delay * (attempt + 1))  # 점점 더 길게 대기
+    raise last_error
+
+
 @st.cache_data(ttl=30)
 def _load_clients():
     client_ws, _, _ = ensure_schema()
-    return client_ws.get_all_records()
+    return _with_retry(client_ws.get_all_records)
 
 
 @st.cache_data(ttl=30)
 def _load_reviews():
-    sh = open_spreadsheet()
+    sh = _get_spreadsheet()
     ws = sh.worksheet(REVIEW_SHEET)
-    return ws.get_all_records()
+    return _with_retry(ws.get_all_records)
 
 
 def _mark_checked_bulk(review_ids: list):
     """여러 리뷰ID를 한 번에 '확인됨'으로 일괄 처리."""
     if not review_ids:
         return
-    sh = open_spreadsheet()
+    sh = _get_spreadsheet()
     ws = sh.worksheet(REVIEW_SHEET)
-    all_values = ws.get_all_values()
+    all_values = _with_retry(ws.get_all_values)
     header = all_values[0]
     id_col = header.index("리뷰ID")
     status_col = header.index("status")
@@ -50,7 +70,11 @@ def _mark_checked_bulk(review_ids: list):
                 "values": [["확인됨"]],
             })
     if updates:
-        ws.batch_update(updates)
+        try:
+            _with_retry(ws.batch_update, updates)
+        except gspread.exceptions.APIError:
+            st.error("구글시트가 일시적으로 응답하지 않아요. 잠시 후 다시 시도해주세요.")
+            return
     st.cache_data.clear()
 
 
@@ -133,7 +157,7 @@ def _render_platform_column(title: str, items: list, link_map: dict = None, link
         for item in client_items:
             with st.container(border=True):
                 if title == "카카오맵 부정리뷰감지":
-                    st.markdown(f"⭐{item.get('별점')}")
+                    st.markdown(f"⭐{item.get('별점')} · {item.get('작성일', '작성일 정보 없음')}")
                 st.write(item.get("리뷰내용", ""))
                 if st.button("✅ 확인", key=f"confirm_{item['리뷰ID']}"):
                     _mark_checked_bulk([item["리뷰ID"]])
