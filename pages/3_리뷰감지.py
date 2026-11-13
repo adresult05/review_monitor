@@ -6,7 +6,7 @@
 확인 처리는 3단계로 할 수 있다:
   1. 항목 하나씩 확인
   2. 고객사별로 한 번에 확인 (그 고객사의 미확인 항목 전부)
-  3. 전체 확인 (현재 화면에 보이는 모든 미확인 항목)
+  3. 플랫폼별 전체 확인 (카카오 / 네이버 각각, 현재 화면에 보이는 미확인 항목)
 """
 import time
 import streamlit as st
@@ -117,21 +117,18 @@ if reviews:
         mime="text/csv",
     )
 
-# ── 전체 확인 버튼 (현재 화면에 보이는 전부) ──────────────
-col_title, col_all_confirm = st.columns([4, 1])
-with col_title:
-    st.caption(f"현재 화면 기준 미확인 {len(unconfirmed)}건")
-with col_all_confirm:
-    if unconfirmed and st.button("✅ 전체 확인", use_container_width=True):
-        _mark_checked_bulk([r["리뷰ID"] for r in unconfirmed])
-        st.rerun()
-
 kakao_items = [r for r in unconfirmed if r.get("플랫폼") == "카카오"]
 naver_items = [r for r in unconfirmed if r.get("플랫폼") == "네이버"]
 
+st.caption(f"현재 화면 기준 미확인 {len(unconfirmed)}건 (카카오 {len(kakao_items)}건 · 네이버 {len(naver_items)}건)")
 
-def _render_platform_column(title: str, items: list, link_map: dict = None, link_label: str = ""):
+
+def _render_platform_column(title: str, items: list, link_map: dict = None, link_label: str = "", all_confirm_label: str = ""):
     st.subheader(f"{title} {len(items)}건")
+    if items and all_confirm_label:
+        if st.button(all_confirm_label, key=f"all_confirm_{title}", type="primary", use_container_width=True):
+            _mark_checked_bulk([it["리뷰ID"] for it in items])
+            st.rerun()
     if not items:
         st.caption("확인할 항목이 없습니다.")
         return
@@ -170,6 +167,6 @@ naver_links = {name: f"https://map.naver.com/p/entry/place/{pid}" for name, pid 
 
 col_kakao, col_naver = st.columns(2)
 with col_kakao:
-    _render_platform_column("카카오맵 부정리뷰감지", kakao_items, link_map=kakao_links, link_label="📍 카카오맵 바로가기")
+    _render_platform_column("카카오맵 부정리뷰감지", kakao_items, link_map=kakao_links, link_label="📍 카카오맵 바로가기", all_confirm_label="✅ 카카오맵 리뷰 전체 확인")
 with col_naver:
-    _render_platform_column("네이버 변동", naver_items, link_map=naver_links, link_label="📍 네이버플레이스 바로가기")
+    _render_platform_column("네이버 변동", naver_items, link_map=naver_links, link_label="📍 네이버플레이스 바로가기", all_confirm_label="✅ 네이버 리뷰 변동 전체 확인")
